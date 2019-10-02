@@ -1,12 +1,19 @@
 jest.mock('../../lib/services/maps-api');
+jest.mock('../../lib/services/weather-api');
 const request = require('../request');
 const db = require('../db');
-const { matchMongoId, matchMongoDate } = require('../match-helpers');
+// const { matchMongoId } = require('../match-helpers');
 const getTour = require('../../lib/services/maps-api');
+const getWeather = require('../../lib/services/weather-api');
 
 getTour.mockResolvedValue({
   latitude: 41,
   longitude: 74
+});
+
+getWeather.mockResolvedValue({
+  time: new Date(),
+  summary: 'Cloudy with a chance of rain'
 });
 
 describe('tours api', () => {
@@ -14,70 +21,151 @@ describe('tours api', () => {
     return db.dropCollection('tours');
   });
 
-  const data = {
-    title: 'Ssing Ssing Tour',
-    activities: ['Live Concert', 'Concessions', 'VIP Lounge']
+  const location1 = {
+    name: 'Brooklyn Bowl',
+    address: '61 Wythe Avenue, New York, NY'
   };
 
-  it('posts a tour', () => {
+  const attend1 = {
+    attendance: 200
+  };
+
+  const data = {
+    title: 'Ssing Ssing Tour',
+    activities: ['Live Concert', 'Concessions', 'VIP Lounge'],
+    launchDate: new Date(),
+    stops: [{}]
+  };
+
+  function postTour(data) {
     return request
       .post('/api/tours')
       .send(data)
       .expect(200)
-      .then(({ body }) => body)
-      .then(postedTour => {
-        expect(postedTour).toMatchInlineSnapshot(
+      .then(({ body }) => body);
+  }
+
+  it('posts a tour', () => {
+    return postTour(data).then(tour => {
+      expect(tour).toMatchInlineSnapshot(
+        {
+          _id: expect.any(String),
+          launchDate: expect.any(String),
+          stops: [{ _id: expect.any(String) }]
+        },
+        `
+        Object {
+          "__v": 0,
+          "_id": Any<String>,
+          "activities": Array [
+            "Live Concert",
+            "Concessions",
+            "VIP Lounge",
+          ],
+          "launchDate": Any<String>,
+          "stops": Array [
+            Object {
+              "_id": Any<String>,
+            },
+          ],
+          "title": "Ssing Ssing Tour",
+        }
+      `
+      );
+    });
+  });
+
+  it('gets tours', () => {
+    return postTour(data).then(() => {
+      return request.get('/api/tours').then(({ body }) => {
+        expect(body[0]).toMatchInlineSnapshot(
           {
-            ...matchMongoDate,
-            ...matchMongoId
+            _id: expect.any(String),
+            launchDate: expect.any(String),
+            stops: [{ _id: expect.any(String) }]
           },
           `
           Object {
             "__v": 0,
-            "_id": StringMatching /\\^\\[a-f\\\\d\\]\\{24\\}\\$/i,
+            "_id": Any<String>,
             "activities": Array [
               "Live Concert",
               "Concessions",
               "VIP Lounge",
             ],
-            "launchDate": StringMatching /\\^\\(-\\?\\(\\?:\\[1-9\\]\\[0-9\\]\\*\\)\\?\\[0-9\\]\\{4\\}\\)-\\(1\\[0-2\\]\\|0\\[1-9\\]\\)-\\(3\\[01\\]\\|0\\[1-9\\]\\|\\[12\\]\\[0-9\\]\\)T\\(2\\[0-3\\]\\|\\[01\\]\\[0-9\\]\\):\\(\\[0-5\\]\\[0-9\\]\\):\\(\\[0-5\\]\\[0-9\\]\\)\\(\\\\\\\\\\.\\[0-9\\]\\+\\)\\?\\(Z\\)\\?/i,
-            "stops": Array [],
+            "launchDate": Any<String>,
+            "stops": Array [
+              Object {
+                "_id": Any<String>,
+              },
+            ],
             "title": "Ssing Ssing Tour",
           }
         `
         );
       });
+    });
+  });
+
+  it('adds a stop', () => {
+    return postTour(data)
+      .then(tour => {
+        return request
+          .post(`/api/tours/${tour._id}/stops`)
+          .send(location1)
+          .expect(200)
+          .then(body => {
+            return [body, location1, location1];
+          });
+      })
+
+      .then(out => {
+        const stops = out[0].body[1];
+        expect(stops).toMatchInlineSnapshot(
+          {
+            _id: expect.any(String)
+          },
+          `
+          Object {
+            "_id": Any<String>,
+          }
+        `
+        );
+      });
+  });
+
+  it('deletes a stop', () => {
+    return postTour(data).then(tour => {
+      return request
+        .post(`/api/tours/${tour._id}/stops`)
+        .send(location1)
+        .expect(200)
+        .then(out => {
+          const stops = out.body[1];
+          return request
+            .delete(`/api/tours/${tour._id}/stops/${stops._id}`)
+            .send(tour._id, stops._id)
+            .expect(200);
+        });
+    });
+  });
+
+  it('updates attend', () => {
+    return postTour(data).then(tour => {
+      return request
+        .post(`/api/tours/${tour._id}/stops`)
+        .send(location1)
+        .expect(200)
+        .then(out => {
+          const stops = out.body[0];
+          return request
+            .put(`/api/tours/${tour._id}/stops/${stops._id}/attendance`)
+            .send(attend1)
+            .expect(200)
+            .then(({ body }) => {
+              expect(body[0].attendance).toBe(200);
+            });
+        });
+    });
   });
 });
-
-//   it('gets tour by id', () => {
-//     return postStop(stopA).then(postedStop => {
-//       data.stop = postedStop._id;
-//       return postTour(data).then(tour => {
-//         console.log(tour);
-
-//         expect(body).toMatchInlineSnapshot(
-//           {
-//             _id: expect.any(String),
-//             studio: {
-//               _id: expect.any(String)
-//             },
-//             __v: 0,
-//             location: {
-//             latitude: 37,
-//             longitude: 127
-//             },
-//             weather: {
-//             any: 'object'
-//             },
-//             attendance: 137
-//         },
-
-//       return request.get(`/api/tours/${tour._id}`)
-//         .expect(200)
-//         .then(({ body }) => {
-//           expect(body).toEqual(tour);
-//         });
-//     });
-//   });
-// });
