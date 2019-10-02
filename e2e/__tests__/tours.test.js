@@ -1,6 +1,13 @@
+jest.mock('../../lib/services/maps-api');
 const request = require('../request');
 const db = require('../db');
 const { matchMongoId, matchMongoDate } = require('../match-helpers');
+const getTour = require('../../lib/services/maps-api');
+
+getTour.mockResolvedValue({
+  latitude: 41,
+  longitude: 74
+});
 
 describe('tours api', () => {
   beforeEach(() => {
@@ -11,25 +18,6 @@ describe('tours api', () => {
     title: 'Ssing Ssing Tour',
     activities: ['Live Concert', 'Concessions', 'VIP Lounge']
   };
-
-  // const stopA = {
-  //   location: {
-  //     latitude: 37,
-  //     longitude: 127
-  //   },
-  //   weather: {
-  //     any: 'object'
-  //   },
-  //   attendance: 137
-  // };
-
-  // function postStop(stop) {
-  //   return request
-  //     .post('/api/stops')
-  //     .send(stop)
-  //     .expect(200)
-  //     .then(({ body }) => body);
-  // }
 
   it('posts a tour', () => {
     return request
