@@ -54,4 +54,24 @@ describe('stops api', () => {
         });
     });
   });
+
+  it('updates a stop', () => {
+    return postStop(data)
+      .then(stop => {
+        stop.attendance = 250;
+        return request
+          .put(`/api/stops/${stop._id}`)
+          .send(stop)
+          .expect(200);
+      })
+      .then(({ body }) => {
+        expect(body.attendance).toBe(250);
+      });
+  });
+
+  it('deletes a stop', () => {
+    return postStop(data).then(stop => {
+      return request.delete(`/api/stops/${stop._id}`).expect(200);
+    });
+  });
 });

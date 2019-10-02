@@ -25,6 +25,18 @@ router
       .lean()
       .then(stops => res.json(stops))
       .catch(next);
+  })
+
+  .put('/:id', ({ params, body }, res, next) => {
+    Stop.updateById(params.id, body)
+      .then(stop => res.json(stop))
+      .catch(next);
+  })
+
+  .delete('/:id', (req, res, next) => {
+    Stop.findByIdAndRemove(req.params.id)
+      .then(stop => res.json(stop))
+      .catch(next);
   });
 
 module.exports = router;
